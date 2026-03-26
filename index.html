@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mon Agence IA</title>
+<style>
+/* ── RESET & BASE ─────────────────────────────────────── */
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#1a1208}
+body{font-family:'Segoe UI',system-ui,sans-serif}
+canvas{image-rendering:pixelated;image-rendering:crisp-edges}
+
+/* ── LAYOUT ───────────────────────────────────────────── */
+#app{width:100vw;height:100vh;position:relative;overflow:hidden}
+#studio-canvas{width:100%;height:100%;display:block}
+
+/* ── SETUP SCREEN ─────────────────────────────────────── */
+#setup{
+  position:absolute;inset:0;background:rgba(20,12,4,0.96);
+  display:flex;align-items:center;justify-content:center;z-index:200;
+}
+#setup-box{
+  background:#faf4e8;border-radius:16px;padding:36px 40px;
+  max-width:420px;width:90%;display:flex;flex-direction:column;gap:18px;
+  border:2px solid #c8a060;
+}
+#setup-box h1{font-size:20px;color:#2a1a08;letter-spacing:.04em}
+#setup-box p{font-size:12px;color:#7a5a30;line-height:1.6}
+#setup-box a{color:#5a8a5a;font-weight:600}
+#api-input{
+  width:100%;padding:10px 14px;border:1.5px solid #d4c0a0;border-radius:8px;
+  font-size:12px;font-family:monospace;color:#2a1a08;outline:none;background:#fff;
+}
+#api-input:focus{border-color:#8a6a3a}
+#api-submit{
+  background:#5a7a4a;border:none;border-radius:8px;color:#fff;
+  padding:11px;font-size:13px;font-weight:600;cursor:pointer;letter-spacing:.04em;
+}
+#api-submit:hover{background:#3a5a2a}
+#api-skip{
+  background:none;border:1px solid #c8a060;border-radius:8px;color:#8a6a3a;
+  padding:8px;font-size:11px;cursor:pointer;
+}
+#api-skip:hover{background:#f0e8d8}
+.setup-note{font-size:10px;color:#aaa;text-align:center}
+
+/* ── CHAT PANEL ───────────────────────────────────────── */
+#chat{
+  position:absolute;right:16px;top:16px;width:280px;
+  background:rgba(254,250,242,0.98);border:1.5px solid #c8a060;
+  border-radius:14px;display:flex;flex-direction:column;
+  max-height:calc(100vh - 80px);z-index:100;
+  transform:translateX(120%);transition:transform .3s cubic-bezier(.4,0,.2,1);
+  box-shadow:0 8px 32px rgba(0,0,0,0.25);
+}
+#chat.open{transform:translateX(0)}
+#chat-head{
+  padding:12px 12px 8px;border-bottom:1px solid #e8d8b0;
+  display:flex;align-items:center;gap:9px;
+  background:#faf4e8;border-radius:14px 14px 0 0;flex-shrink:0;
+}
+#chat-av{
+  width:36px;height:36px;border-radius:50%;flex-shrink:0;
+  font-size:15px;font-weight:800;color:#fff;
+  display:flex;align-items:center;justify-content:center;
+}
+#chat-nm{font-size:12px;font-weight:700;color:#2a1a08}
+#chat-rl{font-size:9px;color:#8a6a3a;font-style:italic;margin-top:1px}
+#chat-x{margin-left:auto;background:none;border:none;color:#bbb;font-size:16px;cursor:pointer;line-height:1;padding:2px}
+#chat-x:hover{color:#555}
+#chat-msgs{
+  flex:1;overflow-y:auto;padding:10px;
+  display:flex;flex-direction:column;gap:6px;
+  background:#faf4e8;min-height:120px;max-height:400px;
+}
+#chat-msgs::-webkit-scrollbar{width:3px}
+#chat-msgs::-webkit-scrollbar-thumb{background:#d4c4a0;border-radius:2px}
+.msg{max-width:92%;padding:7px 10px;border-radius:10px;font-size:11.5px;line-height:1.55}
+.msg.u{align-self:flex-end;background:#5a7a4a;color:#fff;border-bottom-right-radius:3px}
+.msg.a{
+  align-self:flex-start;background:#fff;color:#2a1a08;
+  border:1px solid #e0d0b0;border-left:3px solid #888;border-bottom-left-radius:3px;
+}
+.msg.th{align-self:flex-start;opacity:.5;font-style:italic;background:#f0e8d8;color:#7a6a50;border:1px solid #e0d0b0}
+#chat-inp-row{
+  padding:9px 10px;border-top:1px solid #e8d8b0;
+  display:flex;gap:6px;background:#faf4e8;
+  border-radius:0 0 14px 14px;flex-shrink:0;
+}
+#chat-inp{
+  flex:1;background:#fff;border:1.5px solid #d4c0a0;
+  border-radius:8px;padding:7px 10px;font-size:11.5px;color:#2a1a08;outline:none;
+}
+#chat-inp:focus{border-color:#8a6a3a}
+#chat-send{
+  background:#5a7a4a;border:none;border-radius:8px;
+  color:#fff;padding:7px 12px;cursor:pointer;font-size:13px;font-weight:700;
+}
+#chat-send:hover{background:#3a5a2a}
+
+/* ── HUD ──────────────────────────────────────────────── */
+#hud{
+  position:absolute;bottom:0;left:0;right:0;
+  background:rgba(14,9,3,0.92);border-top:1.5px solid #4a3010;
+  padding:8px 16px;display:flex;align-items:center;gap:10px;
+  backdrop-filter:blur(6px);
+}
+#hud-nm{font-size:11px;font-weight:700;color:#f0d890;letter-spacing:.04em}
+#hud-tx{font-size:9px;color:#a08850;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hbtn{
+  background:none;border:1px solid #4a3010;border-radius:6px;
+  color:#c0a060;padding:5px 10px;font-size:10px;cursor:pointer;white-space:nowrap;
+  transition:all .15s;
+}
+.hbtn:hover{border-color:#c0a040;color:#f0d060}
+.hbtn.g{background:#5a7a4a;border-color:#5a7a4a;color:#fff}
+.hbtn.g:hover{background:#3a5a2a}
+
+/* ── CLOCK ────────────────────────────────────────────── */
+#clock{
+  position:absolute;top:12px;left:50%;transform:translateX(-50%);
+  background:rgba(14,9,3,0.85);border:1px solid #4a3010;
+  border-radius:20px;padding:3px 14px;pointer-events:none;z-index:50;
+}
+#clk-txt{font-size:11px;color:#f0d890;font-weight:700;letter-spacing:.1em;font-family:monospace}
+
+/* ── TASK PANEL ───────────────────────────────────────── */
+#tasks{
+  position:absolute;left:16px;top:16px;width:230px;
+  background:rgba(254,250,242,0.97);border:1.5px solid #c8a060;
+  border-radius:14px;z-index:100;overflow:hidden;
+  box-shadow:0 8px 32px rgba(0,0,0,0.2);
+  transform:translateX(-120%);transition:transform .3s cubic-bezier(.4,0,.2,1);
+}
+#tasks.open{transform:translateX(0)}
+#tasks-head{
+  padding:10px 12px 7px;border-bottom:1px solid #e8d8b0;
+  background:#faf4e8;display:flex;align-items:center;justify-content:space-between;
+}
+#tasks-head span{font-size:11px;font-weight:700;color:#2a1a08;letter-spacing:.04em}
+#tasks-x{background:none;border:none;color:#bbb;font-size:15px;cursor:pointer}
+#tasks-x:hover{color:#555}
+#tasks-list{padding:8px;display:flex;flex-direction:column;gap:6px;max-height:calc(100vh - 160px);overflow-y:auto}
+.task-item{
+  background:#fff;border:1px solid #e8d8b0;border-radius:8px;
+  padding:8px 10px;font-size:10.5px;color:#2a1a08;
+  border-left:3px solid #888;cursor:pointer;transition:all .15s;
+}
+.task-item:hover{background:#f8f0e0}
+.task-item .ti-name{font-weight:700;font-size:11px;margin-bottom:2px}
+.task-item .ti-task{color:#7a5a30;line-height:1.4}
+.task-item .ti-status{
+  display:inline-block;margin-top:4px;font-size:9px;font-weight:600;
+  padding:1px 6px;border-radius:10px;
+}
+.st-active{background:#d4f0e2;color:#0F6E56}
+.st-busy{background:#FAEEDA;color:#854F0B}
+.st-idle{background:#f0f0f0;color:#666}
+
+/* ── RECAP MODAL ──────────────────────────────────────── */
+#recap-modal{
+  position:absolute;inset:0;background:rgba(10,6,2,0.7);
+  display:none;align-items:center;justify-content:center;z-index:150;
+}
+#recap-modal.show{display:flex}
+#recap-box{
+  background:#faf4e8;border-radius:16px;padding:28px 32px;
+  max-width:500px;width:90%;max-height:80vh;overflow-y:auto;
+  border:2px solid #c8a060;box-shadow:0 16px 48px rgba(0,0,0,0.4);
+}
+#recap-box h2{font-size:16px;color:#2a1a08;margin-bottom:16px;letter-spacing:.04em}
+#recap-content{font-size:12px;color:#3a2a10;line-height:1.8}
+#recap-close{
+  margin-top:18px;background:#5a7a4a;border:none;border-radius:8px;
+  color:#fff;padding:9px 20px;cursor:pointer;font-size:12px;font-weight:600;
+}
+#recap-close:hover{background:#3a5a2a}
+#recap-loading{text-align:center;color:#8a6a3a;font-style:italic;font-size:12px;padding:20px 0}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- SETUP SCREEN -->
+<div id="setup">
+  <div id="setup-box">
+    <h1>🏢 Mon Agence IA</h1>
+    <p>Pour que tes agents puissent te répondre, entre ta clé API Anthropic.<br>
+    Tu peux en créer une gratuitement sur <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> → API Keys.</p>
+    <input id="api-input" type="password" placeholder="sk-ant-api03-..." autocomplete="off"/>
+    <button id="api-submit" onclick="saveKey()">Démarrer l'agence ✨</button>
+    <button id="api-skip" onclick="skipKey()">Continuer sans API (chat désactivé)</button>
+    <p class="setup-note">Ta clé est stockée uniquement dans ton navigateur (localStorage). Elle n'est jamais envoyée ailleurs.</p>
+  </div>
+</div>
+
+<!-- MAIN CANVAS -->
+<canvas id="studio-canvas"></canvas>
+
+<!-- CLOCK -->
+<div id="clock"><span id="clk-txt">09:00</span></div>
+
+<!-- TASK PANEL -->
+<div id="tasks">
+  <div id="tasks-head">
+    <span>📋 Équipe</span>
+    <button id="tasks-x" onclick="toggleTasks()">✕</button>
+  </div>
+  <div id="tasks-list" id="tasks-list"></div>
+</div>
+
+<!-- CHAT -->
+<div id="chat">
+  <div id="chat-head">
+    <div id="chat-av">?</div>
+    <div><div id="chat-nm">Agent</div><div id="chat-rl">rôle</div></div>
+    <button id="chat-x" onclick="closeChat()">✕</button>
+  </div>
+  <div id="chat-msgs"></div>
+  <div id="chat-inp-row">
+    <input id="chat-inp" placeholder="Parle à cet agent…" maxlength="400"/>
+    <button id="chat-send" onclick="sendMsg()">↑</button>
+  </div>
+</div>
+
+<!-- HUD -->
+<div id="hud">
+  <div>
+    <div id="hud-nm">Studio Agence</div>
+    <div id="hud-tx">Clique sur un agent pour lui parler • Ils travaillent en autonomie</div>
+  </div>
+  <button class="hbtn" onclick="toggleTasks()">👥 Équipe</button>
+  <button class="hbtn g" id="recap-btn" onclick="showRecap()">Récap du jour ↗</button>
+  <button class="hbtn g" id="hchat" style="display:none" onclick="reopenChat()">💬 Chatter</button>
+</div>
+
+<!-- RECAP MODAL -->
+<div id="recap-modal">
+  <div id="recap-box">
+    <h2>☀️ Récap du jour</h2>
+    <div id="recap-content"><div id="recap-loading">L'assistante Léa prépare ton récap…</div></div>
+    <button id="recap-close" onclick="closeRecap()">Fermer</button>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// CONFIG & STATE
+// ═══════════════════════════════════════════════════════
+let API_KEY = localStorage.getItem('agence_api_key') || '';
+let selectedAgent = null;
+let currentChatAgent = null;
+let gameMin = 9 * 60;
+let T = 0;
+
+// ═══════════════════════════════════════════════════════
+// AGENTS
+// ═══════════════════════════════════════════════════════
+const AGENTS = [
+  {
+    id:'lea', name:'Léa', role:'Assistante personnelle',
+    col:'#4a9a5a', status:'active',
+    task:'Récap matinal & coordination de l\'équipe',
+    perso:'Tu es Léa, assistante personnelle organisée et attentionnée. Tu analyses les conversations Claude, coordonnes l\'équipe, et fais un récap chaque matin. Tu travailles en tailleur sur un coussin vert. Tu adores les plantes et le thé vert. Tu es la première arrivée et la dernière partie.',
+    hello:'Bonjour ! J\'ai analysé toutes tes conversations cette nuit. Tu veux commencer par le récap ou tu as une urgence ?',
+    // Pixel art colors
+    skin:'#f5c9a0', skinD:'#e8a878', hair:'#a04818', hairL:'#c06020',
+    shirt:'#3a7a4a', shirtL:'#5aaa6a', pants:'#3a4870', boots:'#2a1408',
+    homeX: 0.13, homeY: 0.55,
+    state:'work', stateTimer: 8 + Math.random()*10,
+    x:0, y:0, tx:0, ty:0,
+    walkDir:1, bobPhase: Math.random()*Math.PI*2,
+  },
+  {
+    id:'maya', name:'Maya', role:'Réseaux sociaux',
+    col:'#9050c0', status:'active',
+    task:'Posts Instagram · Veille TikTok · Tendances',
+    perso:'Tu es Maya, experte réseaux sociaux. Tu es énergique, créative, toujours debout à ton bureau surélevé. Post-its partout, boule à facettes, musique dans les oreilles. Tu repères les tendances avant tout le monde.',
+    hello:'Heyyy ! J\'ai schedulé 4 posts pour aujourd\'hui. T\'as vu les nouvelles tendances ?',
+    skin:'#f0c898', skinD:'#d8a870', hair:'#c03838', hairL:'#e05050',
+    shirt:'#7a48b8', shirtL:'#9a68d8', pants:'#38206a', boots:'#201040',
+    homeX: 0.73, homeY: 0.48,
+    state:'work', stateTimer: 6 + Math.random()*8,
+    x:0, y:0, tx:0, ty:0,
+    walkDir:-1, bobPhase: Math.random()*Math.PI*2,
+  },
+  {
+    id:'nico', name:'Nico', role:'Création graphique',
+    col:'#c04818', status:'busy',
+    task:'Moodboard campagne printemps · Charte graphique',
+    perso:'Tu es Nico, directeur artistique perfectionniste. Tu travailles sur une table à dessin inclinée avec une lampe dorée vintage. Tes créations sont accrochées au mur. Tu es en flow quand on te laisse tranquille.',
+    hello:'Salut… je suis en plein flow sur le moodboard. Mais dis-moi ce que tu veux.',
+    skin:'#c88858', skinD:'#b07040', hair:'#381808', hairL:'#582818',
+    shirt:'#b84018', shirtL:'#d86030', pants:'#281830', boots:'#180818',
+    homeX: 0.13, homeY: 0.78,
+    state:'work', stateTimer: 14 + Math.random()*12,
+    x:0, y:0, tx:0, ty:0,
+    walkDir:1, bobPhase: Math.random()*Math.PI*2,
+  },
+  {
+    id:'sam', name:'Sam', role:'Analyse & Branding',
+    col:'#1a8878', status:'active',
+    task:'Étude concurrence · Benchmark · Opportunités',
+    perso:'Tu es Sam, analyste méthodique et curieux. Tu travailles assis sur un ballon d\'équilibre rouge. Bureau ultra-rangé avec deux grands écrans et une figurine d\'astronaute. Tu identifies des opportunités de marché.',
+    hello:'Bonjour. J\'ai identifié 3 opportunités de marché ce matin. Je te prépare le brief ?',
+    skin:'#e8b080', skinD:'#d09060', hair:'#202840', hairL:'#303858',
+    shirt:'#1a8870', shirtL:'#2ab890', pants:'#1a2838', boots:'#101828',
+    homeX: 0.73, homeY: 0.72,
+    state:'work', stateTimer: 9 + Math.random()*10,
+    x:0, y:0, tx:0, ty:0,
+    walkDir:-1, bobPhase: Math.random()*Math.PI*2,
+  },
+  {
+    id:'alex', name:'Alex', role:'Dev web',
+    col:'#2860c0', status:'busy',
+    task:'Refonte homepage · Sprint 2 · Intégrations API',
+    perso:'Tu es Alex, développeur full-stack avec un focus absolu. Tu as un casque sur les oreilles, trois écrans et une collection de rubber ducks. Tu parles peu mais tu livres toujours. Ne pas déranger... sauf pour une vraie urgence.',
+    hello:'…Oh, c\'est toi. Le sprint avance bien. J\'ai corrigé le bug du routing ce matin.',
+    skin:'#f0c890', skinD:'#d8a870', hair:'#181820', hairL:'#282838',
+    shirt:'#2050a8', shirtL:'#3060c8', pants:'#181828', boots:'#101018',
+    homeX: 0.87, homeY: 0.78,
+    state:'work', stateTimer: 20 + Math.random()*15,
+    x:0, y:0, tx:0, ty:0,
+    walkDir:-1, bobPhase: Math.random()*Math.PI*2,
+  },
+  {
+    id:'elise', name:'Élise', role:'Rédaction & Contenu',
+    col:'#b03878', status:'idle',
+    task:'Pause créative · Lounge · Retour bientôt',
+    perso:'Tu es Élise, rédactrice poète et pragmatique. Tu alternes entre ton bureau cosy avec des bougies et le lounge pour trouver l\'inspiration. Tu écris avec ton carnet à la main. Tu reviens toujours avec de meilleures idées après une pause.',
+    hello:'Oh bonjour ! Je viens de finir un article. Je suis au lounge si tu veux brainstormer.',
+    skin:'#fac898', skinD:'#e8a870', hair:'#c07040', hairL:'#d89060',
+    shirt:'#a83878', shirtL:'#c85090', pants:'#381828', boots:'#201018',
+    homeX: 0.43, homeY: 0.72,
+    state:'lounge', stateTimer: 10 + Math.random()*10,
+    x:0, y:0, tx:0, ty:0,
+    walkDir:1, bobPhase: Math.random()*Math.PI*2,
+  },
+  {
+    id:'tom', name:'Tom', role:'Planning & Rétroplanif.',
+    col:'#c07010', status:'busy',
+    task:'Rétroplanification Lumina · Deadlines Q3',
+    perso:'Tu es Tom, chef de projet toujours en avance. Grand tableau blanc à côté de ton bureau, timer Pomodoro, café serré. Tu calcules les deadlines avec précision et tu planifies tout dans les moindres détails.',
+    hello:'J\'ai calculé : la deadline Lumina est tenable si on commence maintenant. Voilà le plan.',
+    skin:'#e8c080', skinD:'#d0a860', hair:'#181010', hairL:'#281818',
+    shirt:'#904010', shirtL:'#b06020', pants:'#281408', boots:'#181008',
+    homeX: 0.30, homeY: 0.78,
+    state:'work', stateTimer: 7 + Math.random()*8,
+    x:0, y:0, tx:0, ty:0,
+    walkDir:1, bobPhase: Math.random()*Math.PI*2,
+  },
+];
+
+// Lounge position
+const LOUNGE = { x: 0.43, y: 0.62 };
+
+// ═══════════════════════════════════════════════════════
+// CANVAS SETUP
+// ═══════════════════════════════════════════════════════
+const cv = document.getElementById('studio-canvas');
+const ctx = cv.getContext('2d');
+let CW, CH;
+
+function resizeCanvas() {
+  CW = cv.width  = window.innerWidth;
+  CH = cv.height = window.innerHeight;
+}
+window.addEventListener('resize', () => { resizeCanvas(); buildBG(); });
+resizeCanvas();
+
+// ═══════════════════════════════════════════════════════
+// PIXEL ART DRAW HELPERS
+// ═══════════════════════════════════════════════════════
+// All characters drawn in a 18x30 virtual grid, then scaled
+
+function drawPixelChar(cx, cy, agent, scale, animState, blinkPhase, walkFrame) {
+  const s = scale; // pixels per unit
+  const ox = cx - 9*s;
+  const oy = cy - 26*s;
+
+  function p(x, y, col) {
+    if (!col) return;
+    ctx.fillStyle = col;
+    ctx.fillRect(ox + x*s, oy + y*s, s, s);
+  }
+  function row(y, x0, arr) { arr.forEach((c,i) => { if(c) p(x0+i, y, c); }); }
+
+  const K  = '#1a0a04';
+  const sk = agent.skin, skd = agent.skinD;
+  const hr = agent.hair, hrl = agent.hairL;
+  const sh = agent.shirt, shl = agent.shirtL;
+  const pn = agent.pants;
+  const bt = agent.boots, btl = '#5a3818';
+  const rd = '#e06858'; // mouth
+
+  const sitting = animState === 'sit' || animState === 'lounge';
+  const typing  = animState === 'type' || animState === 'sit';
+  const waving  = animState === 'wave';
+  const walking = animState === 'walk';
+
+  const lx = walking && walkFrame > 0 ? 1 : 0;
+  const rx = walking && walkFrame < 0 ? -1 : 0;
+
+  // ── SHADOW ──
+  ctx.globalAlpha = 0.15;
+  ctx.fillStyle = K;
+  ctx.beginPath();
+  ctx.ellipse(cx, oy + 30*s, 7*s, 2*s, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  // ── LEGS ──
+  if (sitting) {
+    row(20, 4, [K,pn,pn,pn,pn,pn,pn,K]);
+    row(21, 3, [K,pn,pn,K,K,pn,pn,K]);
+    row(22, 3, [K,bt,btl,K,K,btl,bt,K]);
+  } else {
+    row(20, 3+lx, [K,pn,pn,K]);
+    row(21, 3+lx, [K,pn,pn,K]);
+    row(22, 3+lx, [K,sk,sk,K]);
+    row(20, 8+rx, [K,pn,pn,K]);
+    row(21, 8+rx, [K,pn,pn,K]);
+    row(22, 8+rx, [K,sk,sk,K]);
+    row(23, 2+lx, [K,bt,btl,bt,K]);
+    row(23, 8+rx, [K,bt,btl,bt,K]);
+    row(24, 2+lx, [K,bt,btl,bt,K]);
+    row(24, 8+rx, [K,bt,btl,bt,K]);
+  }
+
+  // ── BODY ──
+  row(12, 4, [K,sh,shl,shl,shl,shl,sh,K]);
+  row(13, 3, [K,sh,shl,shl,shl,shl,sh,sh,K]);
+  row(14, 3, [K,sh,sh, sh, sh, sh, sh,sh, K]);
+  row(15, 3, [K,sh,sh, sh, sh, sh, sh,sh, K]);
+  row(16, 3, [K,sh,sh, sh, sh, sh, sh,sh, K]);
+  row(17, 4, [K,pn,pn, pn, pn, pn, pn,K]);
+  row(18, 4, [K,pn,pn, pn, pn, pn, pn,K]);
+  row(19, 4, [K,pn,pn, pn, pn, pn, pn,K]);
+
+  // ── ARMS ──
+  if (waving) {
+    row(9,  1, [K,sh,sh,K]);
+    row(10, 1, [K,sh,sh,K]);
+    row(11, 1, [K,sk,sk,K]);
+    row(12, 2, [K,sh,K]);
+    row(13, 12,[K,sh,K]);
+    row(14, 12,[K,sh,K]);
+    row(15, 12,[K,sk,K]);
+    row(16, 12,[K,sk,K]);
+  } else if (typing) {
+    row(14, 1, [K,sh,sh,K]);
+    row(15, 1, [K,sk,sk,K]);
+    row(16, 1, [K,sk,sk,K]);
+    row(14, 12,[K,sh,sh,K]);
+    row(15, 12,[K,sk,sk,K]);
+    row(16, 12,[K,sk,sk,K]);
+  } else {
+    row(13, 2, [K,sh,K]);
+    row(14, 2, [K,sh,K]);
+    row(15, 2, [K,sk,K]);
+    row(16, 2, [K,sk,K]);
+    row(13, 12,[K,sh,K]);
+    row(14, 12,[K,sh,K]);
+    row(15, 12,[K,sk,K]);
+    row(16, 12,[K,sk,K]);
+  }
+
+  // ── HAIR BACK ──
+  row(0,  4, [K,hr,hr,hrl,hrl,hr,hr,K]);
+  row(1,  3, [K,hr,hrl,hrl,hrl,hrl,hrl,hr,K]);
+  row(2,  3, [K,hr,hrl,hrl,hrl,hrl,hrl,hr,K]);
+  row(3,  3, [K,hr,hrl,hrl,hrl,hrl,hrl,hr,K]);
+  row(4,  3, [K,hr,sk]);
+  row(4, 12, [sk,hr,K]);
+  row(5,  3, [K,hr,sk]);
+  row(5, 12, [sk,hr,K]);
+  row(6,  3, [K,hr,sk]);
+  row(6, 12, [sk,hr,K]);
+  row(7,  3, [K,hr,sk]);
+  row(7, 12, [sk,hr,K]);
+  row(8,  3, [K,hr,sk]);
+  row(8, 12, [sk,hr,K]);
+  row(9,  3, [K,hrl,skd]);
+  row(9, 11, [skd,hrl,K]);
+  row(10, 3, [K,hr,hr]);
+  row(10,11, [hr,hr,K]);
+  row(11, 4, [K,hr,K]);
+  row(11,11, [K,hr,K]);
+
+  // ── FACE ──
+  row(4,  4, [sk,sk,sk,sk,sk,sk,sk,sk]);
+  row(5,  4, [sk,sk,sk,sk,sk,sk,sk,sk]);
+  row(6,  4, [sk,sk,sk,sk,sk,sk,sk,sk]);
+  row(7,  4, [sk,sk,sk,sk,sk,sk,sk,sk]);
+  row(8,  4, [skd,sk,sk,sk,sk,sk,skd]);
+  row(9,  4, [skd,skd,sk,sk,skd,skd]);
+  row(10, 5, [skd,sk,sk,sk,sk]);
+
+  // ── EYES ── (T-shape like the reference)
+  if (blinkPhase > 0.4) {
+    p(6,  6, K); p(7, 6, K);
+    p(9,  6, K); p(10,6, K);
+  } else {
+    p(6,  5, K); p(7, 5, K); p(6, 6, K);
+    p(9,  5, K); p(10,5, K); p(10,6,K);
+  }
+
+  // Eyebrows
+  p(6, 4, hr); p(7, 4, hr);
+  p(9, 4, hr); p(10,4, hr);
+
+  // Nose
+  p(8, 7, skd);
+
+  // Mouth
+  p(7, 9, rd); p(8, 9, rd);
+
+  // Cheeks
+  ctx.globalAlpha = 0.28;
+  ctx.fillStyle = '#e88070';
+  ctx.fillRect(ox+5*s, oy+8*s, s, s);
+  ctx.fillRect(ox+10*s, oy+8*s, s, s);
+  ctx.globalAlpha = 1;
+
+  // Ear
+  p(3, 7, skd); p(12, 7, skd);
+
+  // ── HAIR FRONT (bangs on top of face) ──
+  row(3, 4, [K,hr,hr,hrl,hrl,hrl,hrl,hr,hr,K]);
+  row(4, 4, [K,hr]);
+  row(4,11, [hr,K]);
+  p(3, 5, hr); p(3, 6, hr);
+  p(12,5, hr); p(12,6, hr);
+
+  // ── STATUS DOT ──
+  const sdot = agent.status==='active'?'#3aaa5a':agent.status==='busy'?'#d4a020':'#888';
+  ctx.fillStyle = sdot;
+  ctx.beginPath();
+  ctx.arc(ox+14*s, oy+1*s, 2.5*s, 0, Math.PI*2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+  ctx.lineWidth = s*0.6;
+  ctx.beginPath();
+  ctx.arc(ox+14*s, oy+1*s, 2.5*s, 0, Math.PI*2);
+  ctx.stroke();
+
+  // ── NAME TAG ──
+  const nm = agent.name;
+  const isHov = hoveredAgent && hoveredAgent.id === agent.id;
+  const isSel = selectedAgent && selectedAgent.id === agent.id;
+  const tagAlpha = (isHov||isSel) ? 0.97 : 0.80;
+  ctx.globalAlpha = tagAlpha;
+  ctx.font = `bold ${Math.max(10, s*2.2)}px monospace`;
+  const tw = ctx.measureText(nm).width;
+  const tagH = s*3.5, tagW = tw + s*3;
+  const tagX = cx - tagW/2, tagY = oy - s*4;
+  ctx.fillStyle = 'rgba(14,8,2,0.88)';
+  ctx.beginPath(); ctx.roundRect(tagX, tagY, tagW, tagH, s); ctx.fill();
+  ctx.fillStyle = agent.col;
+  ctx.fillRect(tagX, tagY, s*0.7, tagH);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = '#f0e090';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(nm, cx, tagY + tagH/2);
+  ctx.textBaseline = 'alphabetic';
+
+  if (isHov||isSel) {
+    ctx.globalAlpha = 0.85;
+    ctx.font = `${Math.max(9, s*1.9)}px monospace`;
+    const rw = ctx.measureText(agent.role).width + s*2;
+    const ryy = tagY + tagH + s*0.5;
+    ctx.fillStyle = 'rgba(14,8,2,0.8)';
+    ctx.beginPath(); ctx.roundRect(cx-rw/2, ryy, rw, s*3, s); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = agent.col;
+    ctx.font = `${Math.max(9, s*1.9)}px monospace`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(agent.role, cx, ryy + s*1.5);
+    ctx.textBaseline = 'alphabetic';
+  }
+
+  // Cushion for Léa when sitting
+  if (agent.id === 'lea' && sitting) {
+    const py = oy + 23*s;
+    ctx.fillStyle = '#5a7a4a';
+    ctx.beginPath(); ctx.roundRect(ox+2*s, py, 14*s, 5*s, s); ctx.fill();
+    ctx.fillStyle = '#7aaa60';
+    ctx.fillRect(ox+4*s, py+s, 10*s, 2*s);
+  }
+
+  // Exercise ball for Sam
+  if (agent.id === 'sam' && !sitting) {
+    const by = oy + 24*s;
+    ctx.fillStyle = '#e03030';
+    ctx.beginPath(); ctx.arc(cx, by + 3*s, 5*s, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#c01010'; ctx.lineWidth = s*0.5;
+    ctx.beginPath(); ctx.arc(cx, by + 3*s, 5*s, 0, Math.PI*2); ctx.stroke();
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// STATIC BACKGROUND
+// ═══════════════════════════════════════════════════════
+let bgCanvas = null;
+function buildBG() {
+  bgCanvas = document.createElement('canvas');
+  bgCanvas.width = CW; bgCanvas.height = CH;
+  const g = bgCanvas.getContext('2d');
+
+  const FLOOR_Y = CH * 0.38;
+
+  // Sky
+  const sg = g.createLinearGradient(0,0,0,FLOOR_Y*0.6);
+  sg.addColorStop(0,'#b8d8f0'); sg.addColorStop(1,'#e8f0f8');
+  g.fillStyle = sg; g.fillRect(0,0,CW,FLOOR_Y*0.6);
+
+  // Wall warm
+  g.fillStyle = '#f0e8d2'; g.fillRect(0, FLOOR_Y*0.55, CW, FLOOR_Y*0.5);
+  for(let y=FLOOR_Y*0.57; y<FLOOR_Y+5; y+=CH*0.045) {
+    g.fillStyle='rgba(160,120,60,0.05)'; g.fillRect(0,y,CW,CH*0.022);
+  }
+  // Baseboard
+  g.fillStyle='#d4c090'; g.fillRect(0,FLOOR_Y-6,CW,6);
+  g.fillStyle='#c8a060'; g.fillRect(0,FLOOR_Y,CW,4);
+
+  // Floor planks
+  for(let row=0;row<18;row++){
+    const py = FLOOR_Y+4+row*CH*0.038;
+    for(let c=0;c<10;c++){
+      const pw=CW/5, px=c*pw/2+(row%2?pw/4:0);
+      const fc=['#d09a52','#c08840','#b87838'][(c+row)%3];
+      g.fillStyle=fc; g.fillRect(px,py,pw/2+1,CH*0.038);
+    }
+    g.fillStyle='rgba(0,0,0,0.05)'; g.fillRect(0,py,CW,1);
+  }
+  for(let x=0;x<CW;x+=CW/10){
+    g.fillStyle='rgba(0,0,0,0.04)'; g.fillRect(x,FLOOR_Y,1,CH-FLOOR_Y);
+  }
+
+  // Ceiling beams
+  [0.15,0.38,0.62,0.85].forEach(bx=>{
+    const x=CW*bx;
+    g.fillStyle='#8a6030'; g.fillRect(x-12,0,24,FLOOR_Y*0.55);
+    g.fillStyle='#6a4010'; g.fillRect(x+6,0,8,FLOOR_Y*0.55);
+    g.fillStyle='#a8803a'; g.fillRect(x-12,0,6,FLOOR_Y*0.55);
+    const gl=g.createRadialGradient(x,FLOOR_Y*0.55,0,x,FLOOR_Y*0.55,CW*0.1);
+    gl.addColorStop(0,'rgba(255,230,160,0.2)'); gl.addColorStop(1,'transparent');
+    g.fillStyle=gl; g.fillRect(x-CW*0.1,FLOOR_Y*0.3,CW*0.2,CH*0.25);
+    // Lamp
+    g.fillStyle='#c0c0b0'; g.fillRect(x-5,FLOOR_Y*0.52,10,6);
+    g.fillStyle='#f8e898'; g.beginPath(); g.arc(x,FLOOR_Y*0.57,7,0,Math.PI*2); g.fill();
+  });
+
+  // Windows
+  [0.06,0.27,0.50,0.73,0.91].forEach(wx=>{
+    const x=CW*wx, y=CH*0.04, ww=CW*0.1, wh=CH*0.2;
+    g.fillStyle='#8a6a3a'; g.fillRect(x-3,y-3,ww+6,wh+6);
+    [[x,y,ww*0.47,wh],[x+ww*0.53,y,ww*0.47,wh]].forEach(([px,py,pw,ph])=>{
+      g.fillStyle='#90c8e8'; g.fillRect(px,py,pw,ph);
+      g.fillStyle='rgba(255,255,255,0.3)';
+      g.beginPath(); g.moveTo(px+3,py+3); g.lineTo(px+pw*0.5,py+3); g.lineTo(px+3,py+ph*0.4); g.closePath(); g.fill();
+    });
+    g.strokeStyle='#7a5a28'; g.lineWidth=1.5; g.strokeRect(x,y,ww,wh);
+    g.fillStyle='#8a6030'; g.fillRect(x-4,y+wh,ww+8,8);
+    g.fillStyle='rgba(255,245,200,0.04)';
+    g.beginPath(); g.moveTo(x,y+wh+8); g.lineTo(x+ww,y+wh+8); g.lineTo(x+ww*1.8,CH*0.6); g.lineTo(x-ww*0.8,CH*0.6); g.closePath(); g.fill();
+  });
+
+  // Lounge rug
+  const rx=CW*LOUNGE.x, ry=CH*(LOUNGE.y+0.06);
+  g.fillStyle='rgba(120,104,176,0.45)';
+  g.beginPath(); g.ellipse(rx,ry,CW*0.13,CH*0.07,0,0,Math.PI*2); g.fill();
+  g.fillStyle='rgba(152,136,202,0.4)';
+  g.beginPath(); g.ellipse(rx,ry,CW*0.10,CH*0.055,0,0,Math.PI*2); g.fill();
+  g.strokeStyle='rgba(90,72,138,0.3)'; g.lineWidth=1.5;
+  g.beginPath(); g.ellipse(rx,ry,CW*0.13,CH*0.07,0,0,Math.PI*2); g.stroke();
+}
+
+// ═══════════════════════════════════════════════════════
+// PLANTS
+// ═══════════════════════════════════════════════════════
+const PLANTS = [
+  {x:0.02,y:0.55,s:1.2,type:2,ph:0,spd:0.7},
+  {x:0.02,y:0.72,s:1.0,type:1,ph:1.2,spd:0.8},
+  {x:0.02,y:0.88,s:1.1,type:3,ph:0.5,spd:0.65},
+  {x:0.97,y:0.55,s:1.3,type:1,ph:2.0,spd:0.75},
+  {x:0.97,y:0.72,s:1.0,type:2,ph:0.8,spd:0.9},
+  {x:0.97,y:0.88,s:1.1,type:3,ph:1.5,spd:0.7},
+  {x:0.28,y:0.42,s:0.85,type:1,ph:0.3,spd:1.0},
+  {x:0.57,y:0.42,s:0.9, type:2,ph:1.8,spd:0.85},
+];
+
+function drawPlantPixel(px, py, sz, type, sway) {
+  const s = Math.max(2, Math.round(sz * CW * 0.012));
+  const cx2 = px, cy2 = py;
+  const sw = sway || 0;
+
+  ctx.save();
+  ctx.translate(cx2, cy2);
+  ctx.rotate(sw * 0.04);
+  ctx.translate(-cx2, -cy2);
+
+  // Pot
+  const potW = s*7, potH = s*5;
+  ctx.fillStyle = '#9a6040';
+  ctx.beginPath();
+  ctx.moveTo(cx2-potW/2, cy2); ctx.lineTo(cx2+potW/2, cy2);
+  ctx.lineTo(cx2+potW/2-s, cy2+potH); ctx.lineTo(cx2-potW/2+s, cy2+potH);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#7a4020';
+  ctx.fillRect(cx2-potW/2-s*0.5, cy2-s, potW+s, s*1.5);
+
+  if (type === 1) {
+    [[0,-s*10],[-s*5,-s*7],[s*5,-s*7],[0,-s*15],[-s*3,-s*12],[s*4,-s*12]].forEach(([ox,oy],i)=>{
+      ctx.fillStyle = ['#3a9a3a','#2a7a2a','#50b050','#60c060','#3a9a3a','#4ab04a'][i];
+      ctx.beginPath(); ctx.arc(cx2+ox, cy2+oy, s*4+i%2*s, 0, Math.PI*2); ctx.fill();
+    });
+  } else if (type === 2) {
+    ctx.strokeStyle = '#7a5030'; ctx.lineWidth = s*2;
+    ctx.beginPath();
+    ctx.moveTo(cx2, cy2);
+    ctx.bezierCurveTo(cx2+s*2, cy2-s*10, cx2-s*2, cy2-s*22, cx2+sw*s*4, cy2-s*28);
+    ctx.stroke();
+    [[-s*10,-s*8],[s*9,-s*6],[-s*8,-s*16],[s*8,-s*14],[-s*5,-s*22],[s*6,-s*20]].forEach(([ox,oy],i)=>{
+      ctx.strokeStyle = i%2?'#50b050':'#3a9838'; ctx.lineWidth = s;
+      ctx.beginPath();
+      ctx.moveTo(cx2+sw*s*2, cy2+oy*0.5);
+      ctx.quadraticCurveTo(cx2+ox*0.5, cy2+oy*0.7, cx2+ox, cy2+oy);
+      ctx.stroke();
+      ctx.fillStyle = '#70d060';
+      ctx.beginPath();
+      ctx.moveTo(cx2+sw*s*2, cy2+oy*0.5);
+      ctx.lineTo(cx2+ox, cy2+oy);
+      ctx.lineTo(cx2+ox*0.4, cy2+oy*0.3);
+      ctx.closePath(); ctx.fill();
+    });
+  } else {
+    ctx.fillStyle = '#3a9a3a';
+    ctx.beginPath(); ctx.arc(cx2, cy2-s*8, s*5, 0, Math.PI*2); ctx.fill();
+    [[-s*4,-s*12],[s*4,-s*11],[0,-s*15],[-s*2,-s*6],[s*3,-s*5]].forEach(([ox,oy],i)=>{
+      ctx.fillStyle = ['#2a7a2a','#50b050','#60c060','#4ab04a','#3a9a3a'][i];
+      ctx.beginPath(); ctx.arc(cx2+ox, cy2+oy, s*3+i%2*s, 0, Math.PI*2); ctx.fill();
+    });
+    ctx.fillStyle='#e05050';
+    ctx.beginPath(); ctx.arc(cx2-s*2,cy2-s*17,s*1.5,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx2+s*3,cy2-s*16,s*1.5,0,Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════════════════════
+// LOUNGE FURNITURE
+// ═══════════════════════════════════════════════════════
+function drawLounge(t) {
+  const cx2 = CW*LOUNGE.x, cy2 = CH*LOUNGE.y;
+  const s = Math.max(3, Math.round(CW*0.004));
+
+  // Sofa
+  const sw = s*30, sh2 = s*14, bh = s*16;
+  ctx.fillStyle = '#a09888';
+  ctx.beginPath(); ctx.roundRect(cx2-sw/2-s*4, cy2-bh, s*8, bh+sh2, s*2); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(cx2+sw/2-s*4, cy2-bh, s*8, bh+sh2, s*2); ctx.fill();
+  ctx.fillStyle = '#b0a898';
+  ctx.beginPath(); ctx.roundRect(cx2-sw/2, cy2-bh, sw, bh, s*3); ctx.fill();
+  ctx.fillStyle = '#c0b8a8';
+  ctx.beginPath(); ctx.roundRect(cx2-sw/2, cy2-sh2/2, sw, sh2, s*2); ctx.fill();
+  [[cx2-sw/2+s*3,cy2-bh+s*3],[cx2-sw/2+s*14,cy2-bh+s*3],[cx2-sw/2+s*25,cy2-bh+s*3]].forEach(([x,y],i)=>{
+    ctx.fillStyle=['#5070c0','#d09030','#5070c0'][i];
+    ctx.beginPath(); ctx.roundRect(x,y,s*9,s*10,s*2); ctx.fill();
+  });
+
+  // Coffee table
+  const tx=cx2+sw/2+s*8, ty=cy2-s*2;
+  ctx.fillStyle='#c8a860';
+  ctx.beginPath(); ctx.roundRect(tx,ty,s*18,s*7,s*2); ctx.fill();
+  ctx.fillStyle='#a08838'; ctx.fillRect(tx+s*2,ty+s*7,s*14,s*3);
+
+  // Hologram
+  const hg = Math.sin(t*1.2)*0.12+0.55;
+  ctx.globalAlpha = hg*0.6;
+  ctx.fillStyle = 'rgba(100,200,255,0.6)';
+  ctx.beginPath(); ctx.ellipse(tx+s*9,ty+s*3,s*7,s*3,0,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='rgba(120,220,255,0.9)'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.ellipse(tx+s*9,ty+s*3,s*7,s*3,0,0,Math.PI*2); ctx.stroke();
+  ctx.globalAlpha=1;
+}
+
+// ═══════════════════════════════════════════════════════
+// DESKS
+// ═══════════════════════════════════════════════════════
+const DESK_COLS = {
+  lea:  ['#d4aa6a','#b08840'],
+  maya: ['#a890c8','#7a6898'],
+  nico: ['#c09060','#907040'],
+  sam:  ['#60b0a0','#409080'],
+  alex: ['#6090c8','#406098'],
+  elise:['#c878a0','#985878'],
+  tom:  ['#d4a030','#a47010'],
+};
+
+function drawDesk(agentId, cx2, cy2) {
+  const [top, side] = DESK_COLS[agentId];
+  const s = Math.max(2, Math.round(CW*0.003));
+  const dw = s*28, dh = s*5, legH = s*10;
+
+  ctx.globalAlpha = 0.12;
+  ctx.fillStyle = '#2a1008';
+  ctx.beginPath(); ctx.ellipse(cx2, cy2+dh+legH+s, dw*0.4, s*2, 0, 0, Math.PI*2); ctx.fill();
+  ctx.globalAlpha = 1;
+
+  [[-dw*0.37,0],[dw*0.37,0],[-dw*0.37,dh],[dw*0.37,dh]].forEach(([ox,oy])=>{
+    ctx.fillStyle='#8a6030';
+    ctx.fillRect(cx2+ox-s*1.5, cy2+oy, s*3, legH);
+    ctx.fillStyle='#6a4020';
+    ctx.beginPath(); ctx.roundRect(cx2+ox-s*2.5, cy2+oy+legH, s*5, s*2, s); ctx.fill();
+  });
+  ctx.fillStyle = top;
+  ctx.beginPath(); ctx.roundRect(cx2-dw/2, cy2-dh, dw, dh, s); ctx.fill();
+  ctx.fillStyle = side;
+  ctx.fillRect(cx2-dw/2, cy2, dw, dh);
+  ctx.fillStyle='rgba(255,255,255,0.08)';
+  ctx.fillRect(cx2-dw/2+s*2, cy2-dh+s, dw*0.35, s*2);
+}
+
+function drawMonitor(cx2, cy2, count) {
+  const s = Math.max(2, Math.round(CW*0.003));
+  const cnt = count || 1;
+  for(let i=0;i<cnt;i++){
+    const ox = (i-(cnt-1)/2)*s*15;
+    ctx.fillStyle='#1a1828';
+    ctx.beginPath(); ctx.roundRect(cx2+ox-s*6, cy2-s*10, s*12, s*10, s); ctx.fill();
+    ctx.fillStyle='#1a3a6a';
+    ctx.fillRect(cx2+ox-s*5, cy2-s*9, s*10, s*8);
+    ctx.globalAlpha=0.6;
+    ctx.fillStyle='rgba(80,200,255,0.6)';
+    [0,1,2].forEach(r=> ctx.fillRect(cx2+ox-s*4, cy2-s*8+r*s*2.2, s*(6+r%2*2), s));
+    ctx.globalAlpha=1;
+    ctx.fillStyle='#2a2838'; ctx.fillRect(cx2+ox-s, cy2, s*2, s*3);
+    ctx.fillStyle='#33344a';
+    ctx.beginPath(); ctx.roundRect(cx2+ox-s*3, cy2+s*3, s*6, s, s); ctx.fill();
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// AI BEHAVIOR
+// ═══════════════════════════════════════════════════════
+function updateAgents(dt) {
+  AGENTS.forEach(a => {
+    const dx = a.tx - a.x, dy = a.ty - a.y;
+    const dist = Math.hypot(dx,dy);
+    if(dist > 2){
+      const spd = CW * 0.06 * dt;
+      a.x += dx/dist * Math.min(spd,dist);
+      a.y += dy/dist * Math.min(spd,dist);
+    } else { a.x=a.tx; a.y=a.ty; }
+
+    a.stateTimer -= dt;
+    if(a.stateTimer > 0) return;
+    a.stateTimer = 7 + Math.random()*15;
+    const roll = Math.random();
+
+    if(a.state==='work'){
+      if(roll<0.1 && a.id!=='alex'){
+        a.state='lounge'; a.status='idle';
+        a.tx=CW*(LOUNGE.x+(Math.random()-0.5)*0.06);
+        a.ty=CH*(LOUNGE.y+(Math.random()-0.5)*0.04);
+      } else if(roll<0.18){
+        const others=AGENTS.filter(o=>o.id!==a.id&&o.state==='work');
+        if(others.length){
+          const tgt=others[Math.floor(Math.random()*others.length)];
+          const prevTx=a.tx, prevTy=a.ty;
+          a.tx=tgt.x+(Math.random()-0.5)*CW*0.04;
+          a.ty=tgt.y+(Math.random()-0.5)*CH*0.03;
+          setTimeout(()=>{a.tx=prevTx;a.ty=prevTy;},3000+Math.random()*3000);
+        }
+      } else {
+        a.tx=CW*a.homeX+(Math.random()-0.5)*CW*0.02;
+        a.ty=CH*a.homeY+(Math.random()-0.5)*CH*0.015;
+      }
+    } else if(a.state==='lounge'){
+      if(roll<0.4){ a.state='work'; a.status='active'; a.tx=CW*a.homeX; a.ty=CH*a.homeY; }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// INTERACTION
+// ═══════════════════════════════════════════════════════
+let hoveredAgent = null;
+const CHAR_SCALE = () => Math.max(3, Math.round(CW * 0.018));
+
+function agentAt(mx, my) {
+  const s = CHAR_SCALE();
+  let best=null, bd=s*12;
+  AGENTS.forEach(a=>{
+    const d=Math.hypot(mx-a.x, my-a.y);
+    if(d<bd){bd=d;best=a;}
+  });
+  return best;
+}
+
+cv.addEventListener('mousemove', e => {
+  hoveredAgent = agentAt(e.clientX, e.clientY);
+  cv.style.cursor = hoveredAgent ? 'pointer' : 'default';
+});
+cv.addEventListener('click', e => {
+  const a = agentAt(e.clientX, e.clientY);
+  if(a){ selectedAgent=a; clickAgent(a); }
+});
+
+// ═══════════════════════════════════════════════════════
+// MAIN DRAW LOOP
+// ═══════════════════════════════════════════════════════
+let blinkTimers = {};
+let blinkPhases = {};
+AGENTS.forEach(a => { blinkTimers[a.id]=3+Math.random()*3; blinkPhases[a.id]=0; });
+
+let lastT = 0;
+function loop(ts) {
+  T = ts/1000;
+  const dt = Math.min(T-lastT, 0.05); lastT=T;
+
+  // Clock
+  gameMin++;
+  if(gameMin>=18*60) gameMin=9*60;
+  const h=Math.floor(gameMin/60), m=gameMin%60;
+  document.getElementById('clk-txt').textContent=(h<10?'0':'')+h+':'+(m<10?'0':'')+m;
+
+  updateAgents(dt*60);
+
+  // Blink
+  AGENTS.forEach(a=>{
+    blinkTimers[a.id]-=dt;
+    if(blinkTimers[a.id]<=0){ blinkTimers[a.id]=2.5+Math.random()*3; blinkPhases[a.id]=1; }
+    if(blinkPhases[a.id]>0) blinkPhases[a.id]-=dt*5;
+    if(blinkPhases[a.id]<0) blinkPhases[a.id]=0;
+  });
+
+  ctx.clearRect(0,0,CW,CH);
+  if(bgCanvas) ctx.drawImage(bgCanvas,0,0);
+
+  // Plants sway
+  PLANTS.forEach(p=>{
+    p.sway = Math.sin(T*p.spd+p.ph);
+    drawPlantPixel(CW*p.x, CH*p.y, p.s, p.type, p.sway);
+  });
+
+  drawLounge(T);
+
+  // Sort agents by Y
+  const sorted = [...AGENTS].sort((a,b)=>a.y-b.y);
+
+  sorted.forEach(a=>{
+    const isAtDesk = a.state==='work' && Math.abs(a.x-CW*a.homeX)<CW*0.06;
+    if(isAtDesk){
+      drawDesk(a.id, a.x, a.y+CHAR_SCALE()*5);
+      drawMonitor(a.x, a.y-CHAR_SCALE()*6, a.id==='alex'?3:1);
+    }
+    const isWalking = Math.abs(a.x-a.tx)>CW*0.01 || Math.abs(a.y-a.ty)>CH*0.01;
+    const wf = isWalking ? Math.sin(T*5+a.bobPhase)*1 : 0;
+    const animS = isWalking?'walk':a.state==='lounge'?'lounge':a.state==='work'?'type':'idle';
+    const bob = (isWalking?1.5:0.8)*Math.sin(T*2.2+a.bobPhase);
+    drawPixelChar(a.x, a.y+bob, a, CHAR_SCALE(), animS, blinkPhases[a.id], wf);
+  });
+
+  requestAnimationFrame(loop);
+}
+
+// ═══════════════════════════════════════════════════════
+// UI — SETUP
+// ═══════════════════════════════════════════════════════
+function saveKey(){
+  const k=document.getElementById('api-input').value.trim();
+  if(!k){ alert('Entre ta clé API (sk-ant-...)'); return; }
+  API_KEY=k; localStorage.setItem('agence_api_key',k);
+  startAgence();
+}
+function skipKey(){ startAgence(); }
+
+function startAgence(){
+  document.getElementById('setup').style.display='none';
+  buildBG();
+  AGENTS.forEach(a=>{ a.x=CW*a.homeX; a.y=CH*a.homeY; a.tx=a.x; a.ty=a.y; });
+  buildTasksList();
+  requestAnimationFrame(loop);
+}
+
+// Auto-start if key already saved
+if(API_KEY){ startAgence(); }
+
+// ═══════════════════════════════════════════════════════
+// UI — TASKS PANEL
+// ═══════════════════════════════════════════════════════
+let tasksOpen = false;
+function toggleTasks(){
+  tasksOpen = !tasksOpen;
+  document.getElementById('tasks').classList.toggle('open', tasksOpen);
+}
+function buildTasksList(){
+  const list=document.getElementById('tasks-list');
+  if(!list)return;
+  list.innerHTML='';
+  AGENTS.forEach(a=>{
+    const st=a.status;
+    const el=document.createElement('div');
+    el.className='task-item';
+    el.style.borderLeftColor=a.col;
+    el.innerHTML=`
+      <div class="ti-name" style="color:${a.col}">${a.name}</div>
+      <div class="ti-task">${a.task}</div>
+      <span class="ti-status ${st==='active'?'st-active':st==='busy'?'st-busy':'st-idle'}">${st==='active'?'Actif':st==='busy'?'Occupé':'Pause'}</span>
+    `;
+    el.addEventListener('click',()=>{ clickAgent(a); tasksOpen=false; document.getElementById('tasks').classList.remove('open'); });
+    list.appendChild(el);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// UI — CHAT
+// ═══════════════════════════════════════════════════════
+function clickAgent(a){
+  selectedAgent=a;
+  document.getElementById('hud-nm').textContent=a.name+' · '+a.role;
+  document.getElementById('hud-tx').textContent=a.task;
+  document.getElementById('hchat').style.display='inline-block';
+  document.getElementById('chat-msgs').innerHTML='';
+  openChatPanel(a);
+}
+function openChatPanel(a){
+  currentChatAgent=a;
+  document.getElementById('chat-av').textContent=a.name[0];
+  document.getElementById('chat-av').style.background=a.col;
+  document.getElementById('chat-nm').textContent=a.name+' · '+a.role;
+  document.getElementById('chat-rl').textContent=a.task;
+  if(!document.getElementById('chat-msgs').children.length) addMsg(a.hello,'a',a.col);
+  document.getElementById('chat').classList.add('open');
+  document.getElementById('chat-inp').focus();
+}
+function closeChat(){ document.getElementById('chat').classList.remove('open'); }
+function reopenChat(){ if(currentChatAgent) openChatPanel(currentChatAgent); }
+
+function addMsg(txt,from,col){
+  const d=document.createElement('div'); d.className='msg '+from;
+  if(from==='a') d.style.borderLeftColor=col||'#5a8a5a';
+  d.textContent=txt;
+  const cm=document.getElementById('chat-msgs');
+  cm.appendChild(d); cm.scrollTop=cm.scrollHeight;
+  return d;
+}
+
+async function sendMsg(){
+  const inp=document.getElementById('chat-inp'), txt=inp.value.trim();
+  if(!txt||!currentChatAgent) return;
+  inp.value=''; addMsg(txt,'u');
+  const a=currentChatAgent;
+  const th=addMsg(a.name+' réfléchit…','a th',a.col);
+
+  if(!API_KEY){
+    th.textContent='⚠️ Entre ta clé API dans les paramètres pour activer le chat.';
+    th.classList.remove('th'); return;
+  }
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':API_KEY,'anthropic-version':'2023-06-01'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',max_tokens:400,
+        system:a.perso+'\n\nTu réponds en français, naturellement, 2-4 phrases max, avec ta vraie personnalité.',
+        messages:[{role:'user',content:txt}]
+      })
+    });
+    const data=await r.json();
+    if(data.error){ th.textContent='Erreur API: '+data.error.message; }
+    else { th.textContent=data.content?.[0]?.text||'…'; }
+    th.classList.remove('th');
+  }catch(e){
+    th.textContent='Erreur de connexion. Vérifie ta clé API.';
+    th.classList.remove('th');
+  }
+}
+document.getElementById('chat-inp').addEventListener('keydown',e=>{ if(e.key==='Enter') sendMsg(); });
+
+// ═══════════════════════════════════════════════════════
+// UI — RECAP
+// ═══════════════════════════════════════════════════════
+async function showRecap(){
+  document.getElementById('recap-modal').classList.add('show');
+  document.getElementById('recap-content').innerHTML='<div id="recap-loading">Léa prépare ton récap…</div>';
+  if(!API_KEY){
+    document.getElementById('recap-content').innerHTML='<p>⚠️ Entre ta clé API Anthropic pour activer cette fonctionnalité.</p>';
+    return;
+  }
+  const tasksSummary=AGENTS.map(a=>`- ${a.name} (${a.role}) [${a.status}]: ${a.task}`).join('\n');
+  try{
+    const r=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':API_KEY,'anthropic-version':'2023-06-01'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',max_tokens:600,
+        system:'Tu es Léa, assistante personnelle organisée et attentionnée. Tu fais un récap matinal synthétique et chaleureux pour ton patron. Tu donnes les priorités clés du jour.',
+        messages:[{role:'user',content:`Voici l'état de l'équipe ce matin:\n${tasksSummary}\n\nFais un récap matinal court et actionnable, avec les priorités du jour.`}]
+      })
+    });
+    const data=await r.json();
+    const txt=data.content?.[0]?.text||'Erreur';
+    document.getElementById('recap-content').innerHTML=txt.replace(/\n/g,'<br>');
+  }catch(e){
+    document.getElementById('recap-content').innerHTML='Erreur de connexion.';
+  }
+}
+function closeRecap(){ document.getElementById('recap-modal').classList.remove('show'); }
+</script>
+</body>
+</html>
